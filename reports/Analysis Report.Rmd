@@ -1,0 +1,35 @@
+---
+title: "Analysis Report"
+author: "Hossein Shirzad"
+date: "2023-11-11"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = file.path(getwd(), ".."))
+```
+``` {r ProjectTemplate, include=FALSE}
+library(ProjectTemplate)
+load.project()
+```
+```{r, echo=FALSE}
+# Load the ggplot2 package
+library(ggplot2)
+
+# Assuming 'selected_data' is a subset of your original data
+# Replace 'selected_data' with your actual data frame
+
+# Filter out countries with only one learner
+filtered_data <- combined_data %>%
+  group_by(country) %>%
+  filter(n() > 1) %>%
+  ungroup()
+
+ggplot(filtered_data, aes(x = "", fill = country)) +
+  geom_bar(width = 1, color = "white") +
+  coord_polar("y") +
+  labs(title = "Distribution of Learners by Country",
+       fill = "Country") +
+  theme_minimal()
+```
