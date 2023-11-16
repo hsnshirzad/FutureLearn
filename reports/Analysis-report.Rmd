@@ -1,6 +1,6 @@
 ---
-title: "Analysis Report"
-author: "Hossein Shirzad"
+title: "Analysis Report for CSC8643: Data Management and Exploratory Data Analysis"
+author: "by Hossein Shirzad"
 date: "2023-11-08"
 output: pdf_document
 
@@ -100,7 +100,7 @@ In the second step, the data requirements are contemplated based on the objectiv
 
 ## Data Collection
 
-Data from 7 runs of a massive open online course (MOOC) titled "Cyber Security: Safety At Home, Online, and in Life" created by Newcastle University and shared with the public by the online skills provider FutureLearn is in our possession. There are 52 CSV files included, and the improvement in data quality is observed as the year progresses.
+Data from 7 runs of a massive open online course (MOOC) titled "Cyber Security: Safety At Home, Online, and in Life" created by Newcastle University and shared with the public by the online skills provider FutureLearn is in our possession. There are 53 CSV files included, and the improvement in data quality is observed as the year progresses.
 
 ## Exploring The Data
 
