@@ -11,7 +11,6 @@ This project utilizes the R programming language along with the following librar
 - **readr**: Used for reading and importing datasets efficiently.
 - **dplyr**: Utilized for data manipulation and transformation tasks.
 - **ggplot2**: Employed for creating informative and visually appealing plots and figures.
-- **extrafont**: Included for enhanced font support in the generated plots.
 
 ## Installation
 
@@ -30,9 +29,6 @@ library(dplyr)
 install.packages("ggplot2")
 library(ggplot2)
 
-# Install and load the extrafont library
-install.packages("extrafont")
-library(extrafont)
 
 ```
 
@@ -54,8 +50,8 @@ library(extrafont)
 
 ### Version Control and Logs
 
-- **git log**: The git log for this project can be found `log/Reflective_log.pdf`.
-- **Reflective Log**: A reflective log summarizing my experience on this project is available `log/GitLog.txt`.
+- **git log**: The git log for this project can be found `log/GitLog.txt`.
+- **Reflective Log**: A reflective log summarizing my experience on this project is available .`log/Reflective_log.pdf`.
 
 ## Instructions
 
