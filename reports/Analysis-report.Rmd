@@ -1,0 +1,825 @@
+---
+title: "Analysis Report"
+author: "Hossein Shirzad"
+date: "2023-11-08"
+output: pdf_document
+
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_knit$set(root.dir = file.path(getwd(), ".."))
+
+```
+
+```{r data-cleaning, include=FALSE}
+
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(extrafont)
+extrafont::loadfonts(quiet = TRUE)
+
+
+##----------------------------Cycle 1-------------------------------------------
+#----------------Data preparation and cleaning----------------------------------
+
+# Function to read and process enrolment data and clean them
+read_and_process_enrolment <- function(file_path) {
+  data <- read_csv(file_path)
+  data <- subset(data, country != "Unknown" & gender != "Unknown" & age_range != "Unknown" &
+                   highest_education_level  != "Unknown" & employment_status  != "Unknown"  & employment_area != "Unknown")
+  selected_data <- select(data, learner_id, role, 
+                          gender, country, age_range, highest_education_level, employment_status, 
+                          employment_area, detected_country)
+  return(selected_data)
+}
+
+# Combine all data from enrolments files
+combined_data <- NULL
+for (i in 7:1) {
+  file_path <- paste0("data/cyber-security-", i, "_enrolments.csv")
+  selected_data <- read_and_process_enrolment(file_path)
+  combined_data <- if (is.null(combined_data)) selected_data else rbind(combined_data, selected_data)
+}
+
+# Function to read and process archetype survey responses data
+read_and_process_archetype <- function(file_path) {
+  data <- read_csv(file_path)
+  archetype_data <- select(data, learner_id, archetype)
+  return(archetype_data)
+}
+
+# Combine all data from archetype survey responses files
+combined_archetype_data <- NULL
+for (i in 7:1) {
+  file_path <- paste0("data/cyber-security-", i, "_archetype-survey-responses.csv")
+  archetype_data <- read_and_process_archetype(file_path)
+  combined_archetype_data <- if (is.null(combined_archetype_data)) archetype_data else rbind(combined_archetype_data, archetype_data)
+}
+
+#------------------------Data Construction--------------------------------------
+
+# Join the two data frames based on the common key (learner_id)
+unique_archetype_data <- combined_archetype_data %>% distinct(learner_id, .keep_all = TRUE)
+merged_data <- left_join(combined_data, unique_archetype_data, by = "learner_id")
+
+```
+
+# Introduction
+
+This comprehensive report seeks to distill insights derived from the accumulated data amassed over a seven-year span from participants in the esteemed online course, "Cyber Security: Safety At Home, Online, and in Life," orchestrated by Newcastle University. In an unwavering commitment to bolster both the quantity of participants and the caliber of the course itself, our primary focus gravitates towards delineating the distinctive characteristics self-acknowledged by attendees and those who opted to discontinue their engagement.
+
+This analysis, conducted with the discerning lens of the Cross Industry Standard Process for Data Mining (CRISP-DM), traversed two iterative cycles of the model to yield discerning outcomes encapsulated herein. The elucidation of attendee demographics and the nuanced factors prompting attrition not only serves as a repository of invaluable insights but also provides a strategic compass for stakeholders associated with this online course. The perusal of this report is paramount for stakeholders and providers alike, fostering an informed discourse that precipitates policy refinement to engender an enriched and enhanced educational experience for the clientele.
+
+
+# 1st Round of the CRISP-DM Cycle
+
+## Business Understanding
+
+To kick off our analysis journey, I start by figuring out what I want my business to achieve. I am clear about what I want to achieve and set up some standards for success to check against. This helps the business make sure it is on the right track. Once these standards are found, I put together a plan that fits into the CRISP-DM framework, a kind of guideline for smart data analysis. 
+
+## Objective
+
+The critical objective of this report is to have an understanding of the distribution of those who took this course based on the information given by them in different surveys. The reason for that is to make proper decisions based on the features of the attendees and use the data to improve the course. The success of an online course business hinges on its ability to know and respond to the characteristics and features of its audience. By tailoring content, marketing, user experience, and communication strategies, a business can create a learning environment that not only meets the needs of its attendees but exceeds their expectations, fostering success and sustainability in the dynamic landscape of online education.
+
+
+## Success Criteria
+
+Primarily, this investigation must leverage highly accurate data to generate results of utmost authenticity, suitable for publication and reliable guidance in shaping business decisions. The outcomes ought to precisely align with the defined objectives, addressing the research questions in a format that is readily accessible to stakeholders and demands minimal effort for interpretation.
+
+## Initial Research Question
+
+Given all the information so far, the fundamental question this report is trying to answer is:        
+  
+  **“How is the distribution of attendees in the cyber-security course?”**
+
+## Data Understanding
+
+In the second step, the data requirements are contemplated based on the objective, the availability of data to meet these requirements is assessed, and the reliability of the source used is considered. The significance of this element lies in the maximization of the likelihood of meeting the objectives and the production of valuable results.
+
+## Data Collection
+
+Data from 7 runs of a massive open online course (MOOC) titled "Cyber Security: Safety At Home, Online, and in Life" created by Newcastle University and shared with the public by the online skills provider FutureLearn is in our possession. There are 52 CSV files included, and the improvement in data quality is observed as the year progresses.
+
+## Exploring The Data
+
+Following the collection of the dataset, the subsequent phase entailed a thorough exploration of the data, scrutinizing it for potential quality issues, delving into the variables and their types, and evaluating the disparities between the data requirements and its actual availability. This preliminary screening procedure served to mitigate the risk of investing time in a dataset unsuitable for the analytical needs, presenting a systematic method to ascertain its feasibility and capability to fulfill the specified requirements.
+Each year the enrolments of all those who attend along with their features are registered in one of those CSV files. Knowing the demographic details, educational backgrounds, and preferences of attendees allows for the customization of course content. This ensures that the material resonates with the audience, making the learning experience more engaging and relevant.
+
+There is another file that talks about the archetype of the people attending in this course. Knowing the characteristics of attendees allows for the incorporation of teaching methods and materials that align with their learning styles. This customization increases engagement and motivation, as learners are more likely to stay committed to a course that caters to their individual needs and preferences.
+
+There are also some surveys and Q&As and leaving responses that is valuable given the fact that they are the feedback by the attendees to the system. Analyzing feedback and performance metrics allows for continuous improvement, ensuring that the course remains aligned with the evolving needs and expectations of the audience.
+To recap, the raw data included the following groups of variables for the years shown in brackets:
+
+- Enrollments (7 years)
+
+- Archetype Survey Response (7 years)
+
+- Leaving Survey Response (7 years)
+
+- Question Response (7 years)
+
+- Step Activity (7 years)
+
+- Weekly Sentiment Survey Response (7 years)
+
+- Team Members (6 years)
+
+- Video Stats (5 years)
+
+Having a closer look at enrolment file, features like age, gender, country, high-educational level, employment area and employment status are included. These are valuable data that might be of interest of the business owner. It is because a more tailored set of trainings for the educators might be scheduled based on the unique characteristics of the majority of attendees. Or a change of policy might be needed to encourage those that lack certain hype to continue the course. It is of outmost importance to note that Learner IDs allow for combining of information between different data.
+
+Upon examination and assessment of the data's availability in relation to the analysis requirements, it was determined that there were abundant interesting and informative data points to conduct the analysis within the established objectives and success criteria.
+
+
+## Data Quality Report
+
+Some CSV files were empty of any data such as the Archetype Survey Response for the first two years, and some files have no useful data for the scope of this report. Considering this, it was evident that the data preparation phase would pose challenges. However, the required elements for the proposed analysis in the business objective were present in the data without the need to adjust the scope. Therefore, a deeper dive into the data was taken, and the steps for the data preparation phase began to be drafted.
+
+## Data Preparation
+
+In the third step, I cleaned datasets that lacked useful information, merged clean data to create a more accurate source, and carefully selected the new dataset for the upcoming phase.This strategic merging not only facilitates a comprehensive overview but also contributes to the formation of a cohesive dataset that aligns seamlessly with the objectives of our analysis. Following these data refinement steps, we carefully curate a new dataset, meticulously selecting variables and records that are pertinent to our research questions. 
+
+
+## Data Cleaning Report
+
+After carefully investigating the enrolment CSV file for all 7 years, it was evident that there are many users that have not added any of their details or very restricted amount of detail to their profile. These IDs are of no interest from a business analysis point of view. Surprisingly enough, it was found that those who did not put their country details, also did not add any other information to their profile. So, I decided to exclude these people in the analysis. Doing the same process for all seven years, I decided to include the munge file responsible for this task by the name of “01-A.R”. 
+
+The same process took place for the file containing attendees’ archetypes. It is worth mentioning that the archetype survey response for the first three years were empty of any data. So they were not used for the purpose of this research. Also, those with unknown archetypes were excluded from the new data. The munge file could be found by the name of “01-A.R”
+
+## Data Integration Report
+
+After the exclusion of those with unknown feature, the next step, all the datasets for each year and feature were combined into one big 'Master' data frame to make future analysis simpler. The tasks done here once more made use of helper functions to organize and enhance the coding practices.
+It is worth noting that the reason for exclusion of unknown features were as simple as this sentence: data accuracy is the key in data analysis. It is for sure of great notice that doing so, the number of individual for the analysis drops from 37296 to 3048. However, these are learners with all information needed for the next cycle. 
+
+## Modelling
+
+After wrapping up data preparation, I revisited the preceding phases to guarantee alignment with the plan and assess any potential repercussions on the forthcoming analysis. With no hitches detected, I transitioned into the most thrilling segment of the CRISP-DM process: engaging in exploratory data analysis on the now refined data frame.
+
+## Exploratory Analysis
+
+Exploratory Data Analysis (EDA) is an approach to analysing and visualizing data sets with the goal of summarizing their main characteristics, identifying patterns, and uncovering relationships between variables. EDA is often the initial step in the data analysis process and helps in gaining insights into the data before formal statistical modelling. Within this segment, I delve into the parameters of the data, adhering to a methodical approach aimed at unraveling the essence of the information. This process enables the discovery of noteworthy details that warrant deeper investigation in subsequent stages of analysis, seamlessly feeding into the second round of the analytical cycle.
+
+## Distribution of Learner Gender
+
+As is clear from Figure.1, the number of males participating in this online course is higher than that of females. According to table 1, males comprise 53.3% of all the attendees while females share is 45.3%. It is of great notice that 0.626% of all the participants were of non-binary or other gender group. 
+
+
+                                            Table1. Gender
+
++-----------+-------+------------+
+| Gender    | Count | Percentage |
++===========+=======+============+
+| male      | 2212  | 53.3       |
++-----------+-------+------------+
+| female    | 1878  | 45.3       |
++-----------+-------+------------+
+| other     | 14    | 0.337      |
++-----------+-------+------------+
+| nonbinary | 12    | 0.289      |
++-----------+-------+------------+
+
+```{r data Fig1, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center', fig.width=5, fig.height=3, fig.cap="Distribution of attendees based on their gender"}
+
+
+# Creating a figure based on gender 
+ggplot(combined_data, aes(x = gender)) +
+  geom_bar(fill ="#FFCCCB", color = "#4F94CD", 
+           size = 1, width = 0.8, position = "dodge") +
+  labs(title = "Distribution of Learner Gender",
+       x = "Gender",
+       y = "Count") +
+  theme_minimal() +
+  theme(
+        axis.text.x = element_text(angle = 45, hjust = 1, size = 8, family = "Times"), 
+        axis.text.y = element_text(size = 7),
+        axis.title = element_text(size = 10),
+        plot.title = element_text(size = 10, hjust = 0.5 , face = "bold"),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 8),
+        panel.background = element_rect(fill = "white", color = NA),
+        plot.background = element_rect(fill = "white", color = "gray"))
+
+```
+
+
+##  Distribution of Learner Age range
+
+Another interesting aspect of this dataset was the age range of participants. In fact, recognizing the importance of age range in the success of an online course involves acknowledging the diverse needs, preferences, and characteristics of participants across different life stages. Looking at Figure.2, 26-35 is the pioneer in this section. These are either university students or people with less than 10 years of professional job experience with nearly 25.3% of all the population. The next two age ranges approximately ranked second as is shown in Table 2. 36-45 and 46-55 are people with more than 10 years of professional job experience and it was of no surprise to see them in the second rank. Probably these are workers who started their job without any need of cyber security knowledge. But with the advent of more sophisticated computer algorithm and the penetration of Internet, they decided to pick this online course to either educate themselves or be promoted in their job. 
+
+Surprisingly, 56-65 ranked third in this list with more than 15.4% of all the population. This range, against my own assumption surpassed the 18-25 by a margin of 1.3%. It could be explained in this way. That the majority of people belonging to generation Z (18-25) decided not to put in their real identity or do not even add a single detail of themselves as it is a trend for this generation to stay anonymous. This way, based on the cleaning process, their numbers significantly drop in comparison with other age ranges. 
+
+Those older than 65 also chose to take this online course and they comprise 9% of the whole attendees. My assumption is that the elderlies are those who take any threat more seriously than other group ranges. In the world where cyber-threat is a real thing, they tended to educate themselves that way to avoid any future damage. The smallest portion of participants are those younger than 18. The same trend for 18-25 could also be applied to this age range as they also do not want to leave any trace of themselves online. Another reason is that this course is somehow an advanced course that demands some pre-requisites that student of this range have not passed yet.
+
+
+                                            Table2. Age range
+
++----------------------------+-------+------------+
+| age_range count percentage | Count | Percentage |
++============================+=======+============+
+| 26-35                      | 770   | 25.3       |
++----------------------------+-------+------------+
+| 36-45                      | 552   | 18.1       |
++----------------------------+-------+------------+
+| 46-55                      | 539   | 17.7       |
++----------------------------+-------+------------+
+| 56-65                      | 470   | 15.4       |
++----------------------------+-------+------------+
+| 18-25                      | 430   | 14.1       |
++----------------------------+-------+------------+
+| more than 65               | 274   | 8.99       |
++----------------------------+-------+------------+
+| less than 18               | 13    | 0.427      |
++----------------------------+-------+------------+
+
+
+```{r data Figure2, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center', fig.width=5, fig.height=3, fig.cap="Distribution of attendees based on their age range"}
+
+
+ggplot(combined_data, aes(x = age_range)) +
+  geom_bar(fill = "#CBFFEB" , color = "#4F94CD",  
+           size = 1, width = 0.7, position = "dodge") +  
+  labs(title = "Distribution of Learner Age",
+       x = "Age Range",
+       y = "Count") +
+  theme(
+      axis.text.x = element_text(angle = 30, hjust = 1, size = 8, family = "Times"), 
+      axis.text.y = element_text(size = 7),
+      axis.title = element_text(size = 10),
+      plot.title = element_text(size = 10, hjust = 0.5 , face = "bold"),
+      legend.title = element_text(size = 8),
+      legend.text = element_text(size = 8),
+      panel.background = element_rect(fill = "white", color = NA),
+      plot.background = element_rect(fill = "white", color = "gray"))
+```
+
+
+##  Distribution of Learner Education level
+
+In this section, the education level of the attendees is observed. As is shown in Figure.3, those with a university degree ranks 1st amongst others which does not come as a surprise. This group is the pioneer at working with their computer, having online classes, online transactions. Some of those students’ major is probably computer science or computer engineering. According to the common sense, those with a university degree are more probable to find a professional job in this hyped market and it is not surprising to see that according to Table 3, over 69% of all the attendees are BSc, MSc or PhD graduates.
+\linebreak
+\linebreak
+\linebreak
+
+  
+
+  
+                                    Table3. Highest education level
+
++-------------------------+-------+------------+
+| highest_education_level | Count | Percentage |
++=========================+=======+============+
+| university_degree       | 1310  | 43.0       |
++-------------------------+-------+------------+
+| university_masters      | 692   | 22.7       |
++-------------------------+-------+------------+
+| secondary               | 373   | 12.2       |
++-------------------------+-------+------------+
+| tertiary                | 258   | 8.46       |
++-------------------------+-------+------------+
+| professional            | 257   | 8.43       |
++-------------------------+-------+------------+
+| university_doctorate    | 110   | 3.61       |
++-------------------------+-------+------------+
+| less_than_secondary     | 40    | 1.31       |
++-------------------------+-------+------------+
+| apprenticeship          | 8     | 0.262      |
++-------------------------+-------+------------+
+
+
+
+```{r data Fig3, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center', fig.width=5, fig.height=3, fig.cap="Distribution of attendees based on their highest education level"}
+
+
+ggplot(combined_data, aes(x = highest_education_level)) +
+  geom_bar(fill = '#FFF7CB' , color = "#4F94CD",  
+           size = 1, width = 0.7, position = "dodge") +  
+  labs(title = "Distribution of Learner Education level",
+       x = "Highest education level",
+       y = "Count") +
+  theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, size = 8, family = "Times"), 
+      axis.text.y = element_text(size = 7),
+      axis.title = element_text(size = 10),
+      plot.title = element_text(size = 10, hjust = 0.5 , face = "bold"),
+      legend.title = element_text(size = 8),
+      legend.text = element_text(size = 8),
+      panel.background = element_rect(fill = "white", color = NA),
+      plot.background = element_rect(fill = "white", color = "gray"))
+```
+
+
+##  Distribution of Learner Employment status
+
+When it comes to employment status, my first assumption is that the majority of the attendees might be full-time workers. Those are people who either have a job related to cyber-security, or those who want to be promoted in their professional career by passing this course and add this certificate to their CV. Also, these people have the money needed to buy many things online. Due to the nature of their job which is usually 9-5, they spend their free time or launch break surfing in the web, scrolling down their Instagram feed and watching TikTok videos, all of which requires internet. So the concept of cyber security may come in handy. Moreover, with the advent of decentralized transaction and tokens and coins, it is of great importance to protect ones property online. This is another reason why this group with the money in hand are the pioneers in this list according to Table 4.
+
+Next group is self-employed ones. Many people nowadays sell their product online. They use pre-designed layouts of WordPress, or free plugins to run their sites. So this might be of their interest to know more about their security online. Also, traders are among the self-employed. There is nothing more important for this group other than protecting their online properties. So taking that course may enable them to add another level of security to their job.
+
+Those who are retired and looking for the job are those who can use this opportunity to either educate themselves or to be able to find some employees to hire them as cyber-security specialists. In the world where cyber-security is a big threat, specialists in this field are able to make good amount of money to either compensate for low pensions or to find a reliable source of income if they push themselves a little harder and gain more knowledge in the field. 
+
+                                   Table4. Employment status
+
++-------------------+-------+------------+
+| employment_status | Count | Percentage |
++===================+=======+============+
+| working_full_time | 1304  | 42.8       |
++-------------------+-------+------------+
+| self_employed     | 359   | 11.8       |
++-------------------+-------+------------+
+| working_part_time | 333   | 10.9       |
++-------------------+-------+------------+
+| retired           | 283   | 9.28       |
++-------------------+-------+------------+
+| looking_for_work  | 282   | 9.25       |
++-------------------+-------+------------+
+| full_time_student | 274   | 8.99       |
++-------------------+-------+------------+
+| not_working       | 113   | 3.71       |
++-------------------+-------+------------+
+| unemployed        | 100   | 3.28       |
++-------------------+-------+------------+
+
+
+
+```{r data Fig4, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center', fig.width=5, fig.height=4, fig.cap="Distribution of attendees based on their employment status"}
+
+
+ggplot(combined_data, aes(x = employment_status)) +
+  geom_bar(fill = "#F0CBFF" , color = "#4F94CD",  
+           size = 1, width = 0.7, position = "dodge") +  
+  labs(title = "Distribution of Learner Employment status",
+       x = "Employment status",
+       y = "Count") +
+  theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, size = 8, family = "Times"), 
+      axis.text.y = element_text(size = 7),
+      axis.title = element_text(size = 10),
+      plot.title = element_text(size = 10, hjust = 0.5 , face = "bold"),
+      legend.title = element_text(size = 8),
+      legend.text = element_text(size = 8),
+      panel.background = element_rect(fill = "white", color = NA),
+      plot.background = element_rect(fill = "white", color = "gray"))
+```
+
+
+##  Distribution of Learner Employment area
+
+In accordance with our initial assumption, the biggest population of learners are those working at IT and information services. This group finds this course useful for their promotion and maybe this the core of their new role and they want to gai deeper knowledge about that. The second rank is teachers and educators. Those are people who either use the information provided in their course for the educational purposes, such as a computer teacher who wants to have more information to spread among the students, or want to be as updated as possible about one of the controversial topics of today’s world. Engineers are the third biggest population taking this course. This is because the majority of their tasks in their career is handled through computer. Many engineers especially after the pandemic choose to telecommute. They have numerous online meetings and information is shared between coworkers using cloud storage devices. It is of no surprise to see them educating themselves about this topic which is a potential threat while doing everything online. 
+
+                                    Table5. Employment area
+
++-------------------------------------+-------+------------+
+| employment_area                     | Count | Percentage |
++=====================================+=======+============+
+| it and information services         | 724   | 23.8       |
++-------------------------------------+-------+------------+
+| teaching and education              | 458   | 15.0       |
++-------------------------------------+-------+------------+
+| engineering and manufacturing       | 237   | 7.78       |
++-------------------------------------+-------+------------+
+| health and social care              | 198   | 6.50       |
++-------------------------------------+-------+------------+
+| public sector                       | 198   | 6.50       |
++-------------------------------------+-------+------------+
+| business consulting and management  | 173   | 5.68       |
++-------------------------------------+-------+------------+
+| accountancy banking_and finance     | 132   | 4.33       |
++-------------------------------------+-------+------------+
+| charities and voluntary work        | 128   | 4.20       |
++-------------------------------------+-------+------------+
+| law                                 | 105   | 3.44       |
++-------------------------------------+-------+------------+
+| creative arts and culture           | 93    | 3.05       |
++-------------------------------------+-------+------------+
+| retail and sales                    | 88    | 2.89       |
++-------------------------------------+-------+------------+
+| marketing divertising and pr        | 73    | 2.40       |
++-------------------------------------+-------+------------+
+| media and publishing                | 67    | 2.20       |
++-------------------------------------+-------+------------+
+| science and pharmaceuticals         | 67    | 2.20       |
++-------------------------------------+-------+------------+
+| hospitality tourism and sport       | 57    | 1.87       |
++-------------------------------------+-------+------------+
+| armed forces and emergency services | 54    | 1.77       |
++-------------------------------------+-------+------------+
+| transport and logistics             | 54    | 1.77       |
++-------------------------------------+-------+------------+
+| energy and utilities                | 44    | 1.44       |
++-------------------------------------+-------+------------+
+| environment and agriculture         | 39    | 1.28       |
++-------------------------------------+-------+------------+
+| property and construction           | 38    | 1.25       |
++-------------------------------------+-------+------------+
+| recruitment and pr                  | 21    | 0.689      |
++-------------------------------------+-------+------------+
+
+
+
+```{r data Fig5, echo=FALSE, warning=FALSE, message=FALSE, fig.align='center', fig.width=10, fig.height=3, fig.cap="Distribution of attendees based on their eployment area"}
+
+
+ggplot(combined_data, aes(x = employment_area)) +
+  geom_bar(fill = "#FFDACB" , color = "#4F94CD",  
+           size = 1, width = 0.7, position = "dodge") +  # Adjust size, width, and position
+  labs(title = "Distribution of Learner Employment area",
+       x = "Employment area",
+       y = "Count") +
+  theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, size = 6, family = "Times"), 
+      axis.text.y = element_text(size = 7),
+      axis.title = element_text(size = 10),
+      plot.title = element_text(size = 10, hjust = 0.5 , face = "bold"),
+      legend.title = element_text(size = 8),
+      legend.text = element_text(size = 8),
+      panel.background = element_rect(fill = "white", color = NA),
+      plot.background = element_rect(fill = "white", color = "gray"))
+```
+
+
+##  Distribution of Learner Country
+
+The information shown in Figure.6 gives us some useful insights into the countries from which learners signed up for this course. As clear as it is, the first rank is for the Great Britain; the country where Newcastle university is located and the advertisement is more than anywhere else. According to the statistics, Nigeria is the most growing country in terms of technological advancements in the Africa. Not only that, it was a colony of the British empire and gained its independence in 1960. Every Nigerian speaks English and it was not surprising for me to see that as the second country with the most population. Another colonies of the British empire, India is the third country with only 0.32% less population than Nigeria. The same reasons for Nigeria could also be applied to India. It has an economy that is growing rapidly and is assumed to be a super power in the near future. Thus it is essential for people living their to adapt themselves to the edge of scientific advancements like cyber security. The next country is the United States. Everyone is aware of the power of the US in the field of computer science and it was valid to think of it as the third country with the most population. 
+
+As the fourth country is Australia, it is safe to assume that the language plays an important role in choosing an online course as in the first 5 countries with most learners, English is either the first or the second language. (For better readability of the data, I have chosen to display only the top 20 countries in Figure 7 and Table 7.)
+
+                                      Table6. Country
+
++-----------+-------+------------+
+| country   | Count | Percentage |
++===========+=======+============+
+| 1 GB      | 954   | 31.3       |
++-----------+-------+------------+
+| 2 NG      | 162   | 5.31       |
++-----------+-------+------------+
+| 3 IN      | 152   | 4.99       |
++-----------+-------+------------+
+| 4 US      | 131   | 4.30       |
++-----------+-------+------------+
+| 5 AU      | 83    | 2.72       |
++-----------+-------+------------+
+| 6 IT      | 62    | 2.03       |
++-----------+-------+------------+
+| 7 MX      | 56    | 1.84       |
++-----------+-------+------------+
+| 8 SA      | 52    | 1.71       |
++-----------+-------+------------+
+| 9 ZA      | 51    | 1.67       |
++-----------+-------+------------+
+| 10 UA     | 48    | 1.57       |
++-----------+-------+------------+
+| 11 DE     | 47    | 1.54       |
++-----------+-------+------------+
+| 12 BR     | 44    | 1.44       |
++-----------+-------+------------+
+| 13 GH     | 44    | 1.44       |
++-----------+-------+------------+
+| 14 PK     | 43    | 1.41       |
++-----------+-------+------------+
+| 15 CA     | 42    | 1.38       |
++-----------+-------+------------+
+| 16 IE     | 42    | 1.38       |
++-----------+-------+------------+
+| 17 ES     | 41    | 1.35       |
++-----------+-------+------------+
+| 18 FR     | 40    | 1.31       |
++-----------+-------+------------+
+| 19 EG     | 37    | 1.21       |
++-----------+-------+------------+
+| 20 NL     | 31    | 1.02       |
++-----------+-------+------------+
+
+
+
+
+```{r data Fig6, echo=FALSE, warning=FALSE, message=FALSE, cache=TRUE, fig.align='center', fig.width=10, fig.height=3, fig.cap="Distribution of attendees based on their country"}
+
+
+filtered_data_percent <- combined_data %>%
+  group_by(country) %>%
+  summarise(percent = n() / nrow(combined_data) * 100) %>%
+  arrange(desc(percent))
+
+pie_chart <- ggplot(filtered_data_percent %>% slice_head(n = 20), aes(x = "", y = percent, fill = country)) +
+  geom_bar(stat = "identity", width = 1, color = "white") +
+  coord_polar("y") +
+  labs(title = "Distribution of Learners by Country",
+       fill = "country")+
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 2), 
+    axis.text.y = element_text(size = 2),
+    axis.title = element_text(size = 2),
+    plot.title = element_text(size = 10, hjust = 0.5 , face = "bold"),
+    legend.title = element_text(size = 8),
+    legend.text = element_text(size = 8),
+    panel.background = element_rect(fill = "white", color = NA),
+    plot.background = element_rect(fill = "white", color = "gray")) 
+
+pie_chart + guides(fill = guide_legend(ncol = 2))
+
+```
+
+
+##  Distribution of Learner Archetype
+
+The last feature under scrutiny is the archetype of the attendees. Knowing the archetype of attendees is like having a roadmap that guides course design, communication strategies, and support services. It enables organizers to create a more personalized and effective online learning experience, ultimately contributing to the overall success of the course. According to Figure.7, Vitalisers are the first group with the most population in the dataset. It was of no surprise to see them ranked 1st. This is because to them, learning is an intriguing activity. So, what is more enjoyable than having an online course that is a pure need in today’s life? Some of these people find it interesting to educate themselves about a brand-new topic, be it an online course about cooking or and advanced cyber-security online course.
+According to Table 7, they comprise 22.1% of all the attendees. The next one is the one called Exploreres. As is clear from their name, they are in search of a better life by changing their careers or starting something new. They usually took this course for the sake of preparing themselves for the better future or be sure of their readiness. The next one that is nearly 16% of the population is Advancers. This groups or trying to be promoted in their job and be better at everything. Unlike the last group, they are not looking for a change in their life. But, their ultimate goal is to be better at anything they are currently involved in by learning as much as possible. The last group with a 2-digit share in the population is Fixers. These are the people whose professional career is not entangled with cyber-security. They just want to improve their overall life by avoiding threats in the cyber world, or to not put their online crypto-currency properties at risk by learning how to protect them. 
+
+                                      Table7. Archetype
+
++--------------+------------------+------------+
+|   archetype  | count percentage | Percentage |
++==============+==================+============+
+|   Vitalisers |        237       |    22.1    |
++--------------+------------------+------------+
+|   Explorers  |        208       |    19.4    |
++--------------+------------------+------------+
+|   Advancers  |        172       |    16.0    |
++--------------+------------------+------------+
+|     Fixers   |        136       |    12.7    |
++--------------+------------------+------------+
+|   Hobbyists  |        96        |    8.94    |
++--------------+------------------+------------+
+|     Other    |        94        |    8.75    |
++--------------+------------------+------------+
+|   Preparers  |        88        |    8.19    |
++--------------+------------------+------------+
+| Flourishers  |        43        |    4.00    |
++--------------+------------------+------------+
+
+```{r data fig7, echo=FALSE, warning=FALSE, message=FALSE, cache=TRUE, fig.align='center', fig.width=5, fig.height=3, fig.cap="Distribution of attendees based on their Archetype"}
+
+
+ggplot(combined_archetype_data, aes(x = archetype)) +
+  geom_bar(fill = "#C8A2C8" , color = "#4F94CD",  
+           size = 1, width = 0.7, position = "dodge") +  
+   labs(title = "Distribution of Learners by Archetype",
+       x = "Archetype",
+       y = "Count") +
+  theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, size = 6, family = "Times"), 
+      axis.text.y = element_text(size = 8),
+      axis.title = element_text(size = 8),
+      plot.title = element_text(size = 10, hjust = 0.5 , face = "bold"),
+      legend.title = element_text(size = 8),
+      legend.text = element_text(size = 8),
+      panel.background = element_rect(fill = "white", color = NA),  # Light pastel purple
+      plot.background = element_rect(fill = "white", color = "gray"))
+```
+
+## Round 1: Evaluation
+
+Now, we arrive at the ultimate phase of the initial round – a comprehensive overview of everything thus far. This phase entails scrutinizing the outcomes against their alignment with the initially set objectives, assessing the fulfillment of success criteria, contemplating ways to enhance the analysis or data, and ultimately determining the course for the subsequent round of investigations.
+
+Up to this point, the analysis conducted has successfully addressed the primary objective of resolving the initial research question. We now have a better understanding of the distribution the learners. This gives us a better overview of the situation and an advantage for the second round. Regarding data quality, I've determined that the utilized data has been satisfactory in furnishing a broad overview of market trends related to contractor revenue. The analysis outcomes have been presented in a format that is both accessible and effortlessly comprehensible.
+Concludingly, a meticulous exploration of the forthcoming steps awaits in the subsequent round 2 of the CRISP-DM cycle, initiating with a  review of the business objectives.
+
+
+# Second Round of the CRISP-DM Cycle
+
+
+```{r data-prepration,  include=FALSE}
+
+##----------------------------Cycle 2-------------------------------------------
+#----------------Data preparation and cleaning----------------------------------
+
+# Function to read and process leaving survey data
+read_and_process_leaving <- function(file_path) {
+  data <- read_csv(file_path)
+  leaving_data <- select(data, learner_id, left_at, leaving_reason, last_completed_step_at,
+                              last_completed_step, last_completed_week_number,
+                              last_completed_step_number)
+  return(leaving_data)
+}
+
+# Initialize an empty list to store data for each cycle
+list_of_data <- list()
+
+# Loop through each cycle (i)
+for (i in 1:7) {
+  
+  # Read and process enrollment data for the current cycle
+  enrolment_file_path <- paste0("data/cyber-security-", i, "_enrolments.csv")
+  enrolment_data <- read_and_process_enrolment(enrolment_file_path)
+  
+  # Read and process archetype data for the current cycle
+  archetype_file_path <- paste0("data/cyber-security-", i, "_archetype-survey-responses.csv")
+  archetype_data <- read_and_process_archetype(archetype_file_path)
+  
+  # Read and process leaving survey data for the current cycle
+  leaving_file_path <- paste0("data/cyber-security-", i, "_leaving-survey-responses.csv")
+  leaving_data <- read_and_process_leaving(leaving_file_path)
+  
+  # Join leaving survey data with enrollment data based on learner_id
+  leaving_enrollment_data <- left_join(leaving_data, enrolment_data, by = "learner_id")
+  
+  # Join the result with archetype data based on learner_id
+  full_data <- left_join(leaving_enrollment_data, archetype_data, by = "learner_id")
+  
+  # Save the result in the list
+  list_of_data[[i]] <- full_data
+  
+}
+
+# Combine the list of data into a single data frame
+leaving_with_profile_data <- do.call(rbind, list_of_data)
+
+```
+
+## Business Understanding 
+
+Building on the outcomes of round 1, where the research objectives stand unaltered, the primary focus remains on extracting meaningful insights crucial for businesses in this sector. This involves a comprehensive analysis of trends and patterns within the data over the past 7 years.
+That being said, the second question to focus the next cycle on is as follows:
+
+**“What is the distribution of the people who leave based on their features and their reason?”**
+
+The second research is suitable following the results of the first round as we can see that we already have the distribution of learners feature for the 7 rounds of the course. Also, we possess their archetype as well that may come handy when we want to assess their reason or associate a reason to their leaving. For any online learning business, the number of people who leave the course immediately is of paramount importance. Analyzing dropout patterns provides valuable insights for data-driven decision-making. Understanding the reasons behind early exits allows for targeted interventions, whether in terms of additional support, course modifications, or personalized learning pathways.
+
+Attendees who leave will advertise against this course. A high attrition rate can negatively impact the reputation and credibility of the online learning business. Potential learners may be hesitant to enroll in courses with a history of high dropout rates, affecting the platform's attractiveness and perceived quality. The more a business can make learners involved in the process of learning, the better the chance of selling more. More importantly, Higher dropout rates can lead to financial losses for the online learning platform. When students leave a course early, the platform may lose potential revenue from course fees or subscriptions. Also, persistent high attrition rates may indicate issues with the quality of the learning experience. It could imply that the course content, instructional methods, or platform usability need improvement to better engage and retain learners. 
+Having met the success criteria and objectives, and a research question defined within the existing bounds, there is no necessity to tweak the scope of this analysis at this time. Thus, I persist with the established parameters and proceed to scrutinize the data.
+
+## Data Understanding
+
+In this subsequent phase, contemplation ensues on how the data requirements have evolved in the context of the freshly formulated research question. A thorough reassessment of the data quality follows the outcomes of the first round, pondering potential modifications in data derivation methods or the necessity for new sources. These considerations aim to enhance accuracy and broaden the realm of possibilities in alignment with the overarching business objective.
+
+After a thorough review of the data in the first round of analysis, along with results which successfully meet the objectives, the quality of the existing data can be safely considered fit for the needs of this next round of analysis.
+
+The new data set being used for this round is the leaving survey responses. These CSV files contain the reason for their dropout which might be useful for future analysis. They also include the last step completed, dropout week number and the last step number they have completed.
+
+## Exploring The Data
+
+In this part, a concise overview is provided regarding the supplementary wrangling steps undertaken to formulate the new variables essential for this round of data analysis. This time the 7 surveys related to leaving will be explored. The first three years have no data and will be excluded from this analysis.
+
+## Data Cleaning Report
+
+The data cleaning is aimed at refining the analysis of the distribution of individuals who leave the course. It was happend by addressing null values in the "gender" and "archetype" fields. The objective is to ensure the reliability and accuracy of subsequent analyses. The process involves removing entries where gender information is missing, as the absence of such data can compromise gender-specific insights and introduce bias. Additionally, null values in the "archetype" field are addressed, considering that a lack of archetype information may distort the analysis and hinder the identification of trends related to different job roles. The benefits of this cleaning process include improved accuracy in leave analysis, ensuring that gender and archetype-related insights are representative of the entire dataset. While acknowledging that removing null values may reduce the dataset size, the trade-off is justified by the enhanced accuracy of the subsequent analyses.
+
+## Data Integration Report
+
+Observing leaving surveys, it was found that we have 403 valid data distributed among 4 files for 4 runs. The first step would be to join all these data together and have a csv file that contains all of them. The munge file for this purpose is found by the name of 01-B.R. As every learner have a unique Learner ID, associating them with their feature is a good idea so that we can have a better understanding of the whole data as a whole. Thus, the master dataset obtained at the last round will be used to join the data set of leaving responses under the munge file 01-B.R. Finally, the archetype of all the learners will join the current data to arrive the final dataset used for the second cycle of the analysis. The munge file could also be found by the name 01-B.R.
+
+
+## Modelling
+
+Now it is the time to put everything obtained so far into practice and try to understand the distribution of learner’s living. The strategy used here is the same as the one used in the previous cycle. EDA enables the discovery of noteworthy details that warrant deeper investigation in subsequent stages of analysis, feeding into the second round of the analytical cycle.
+
+
+## Reasons for Attendees Leaving based on Surveys
+
+The leaving survey file, as stated before, includes the reason people have to drop this course. It is a good starting point to know more about the real challenges or issues with the cyber security course. In fact, checking the reasons why people drop an online course is vital for gaining insights into the challenges learners face, improving course design, implementing targeted interventions, and ultimately enhancing the overall learning experience. It is a key component of proactive and data-driven strategies to support learner retention and success in online education.
+
+As seen in Table 8., 28.8% of people say they do not have enough time. So, it is of importance to address this issue. It is maybe because the assignments were not given based on the time needed to do them. Provider of this online course might want to underscore reaching out to instructors or peers for guidance and support. Instructors can offer insights on time management, and peer interactions can provide a sense of community and shared experiences.  Another issue might be the time these classes were held. A solution to this might be offering tips and strategies for effective time management. Also, providing resources or recommendations on how to create a study schedule, prioritize tasks, and allocate dedicated time for course-related activities amid daily responsibilities.
+
+More than 10% of the attendees claim that the course was not what they expected. This is again a failure for the providers. Two possibilities are considered. Firstly, is that the course was not as rich as it seems. This is not a good situation and must be addressed immediately. A solution might be revisiting the course description and objectives to ensure alignment with audience’s expectations. Sometimes, learners may misunderstand or overlook certain aspects during the initial assessment. Also, a panel connecting with peers who are taking the same course could be provided. Peer perspectives can offer valuable insights, and discussions with fellow learners may provide a different viewpoint on the course content and its relevance. Secondly, it might arise from the point that learners misunderstood the contents of the course. Here, a solution might be recommending exploring additional course content beyond the initial modules. The beginning of a course may set the foundation, and the content may evolve to meet expectations as the course progresses. Also, encouraging the individual to clarify their expectations and identify specific aspects of the course that fell short. Understanding their expectations better can help provide more targeted advice or guide them toward a more suitable course.
+
+                                      Table8. Leaving reasons
+
++-------------------------------------------------+------------------+------------+
+|                  leaving_reason                 | count percentage | Percentage |
++=================================================+==================+============+
+|              I don’t have enough time           |        139       |    28.8    |
++-------------------------------------------------+------------------+------------+
+|                       Other                     |        107       |    22.2    |
++-------------------------------------------------+------------------+------------+
+|                I prefer not to say              |        50        |    10.4    |
++-------------------------------------------------+------------------+------------+
+|         The course wasn’t what I expected       |        49        |    10.1    |
++-------------------------------------------------+------------------+------------+
+|   The course required more time than I realised |        41        |    8.49    |
++-------------------------------------------------+------------------+------------+
+|      The course won’t help me reach my goals    |        40        |    8.28    |
++-------------------------------------------------+------------------+------------+
+|              The course was too hard            |        38        |    7.87    |
++-------------------------------------------------+------------------+------------+
+|              The course was too easy            |        19        |    3.93    |
++-------------------------------------------------+------------------+------------+
+
+
+
+```{r data fig8, echo=FALSE, warning=FALSE, message=FALSE, cache=TRUE, fig.align='center', fig.width=5, fig.height=3, fig.cap="Leaving reasons based on attendees claim"}
+
+
+ggplot(leaving_with_profile_data, aes(x = leaving_reason)) +
+  geom_bar(fill = "#FFD700" , color = "#4F94CD",  
+           size = 1, width = 0.7, position = "dodge") +  
+   labs(title = "Leaving reasons based on attendees claim",
+       x = "Leaving reasons",
+       y = "Count") +
+  theme(
+      axis.text.x = element_text(angle = 45, hjust = 1, size = 6, family = "Times"), 
+      axis.text.y = element_text(size = 8),
+      axis.title = element_text(size = 8),
+      plot.title = element_text(size = 10, hjust = 0.5 , face = "bold"),
+      legend.title = element_text(size = 8),
+      legend.text = element_text(size = 8),
+      panel.background = element_rect(fill = "white", color = NA),  # Light pastel purple
+      plot.background = element_rect(fill = "white", color = "gray"))
+```
+
+
+
+## Distribution of Leaving attendees based on their Gender
+
+This is where things get a little bit tricky. Looking at Figure. 9, it becomes clear that females have dropped this course 12.4% more than men do. To be specific, females share of the total drop is 55.6% while that of males is 43.2%. In the world where treating everybody fair irrespective of their feature is a must, these numbers are not accepted.
+
+To the best knowledge of the author, there is no justifying reason to account for the more dropout of females naturally. This way, the problem might arise from the fact that the creators of this course are not taking this matter seriously. A solution to this matter might be initiating surveys or feedback sessions specifically targeting female participants. Understanding their unique challenges, concerns, and expectations to tailor interventions that address gender-specific issues might be a good start. Fostering a supportive online community where female learners can connect, share experiences, and offer mutual support is another option. Encouraging peer mentorship or creating forums for female participants can enhance a sense of community and engagement. Another very important matter is reviewing course content and ensure it is inclusive and relevant to both genders. Considering incorporating diverse perspectives, examples, and case studies that resonate with female learners to increase their engagement and interest may help solve the problem.
+
+Last but not least, continuously monitoring dropout rates and feedback from female learners is the key to get better at this point. Regularly reviewing and adjusting strategies based on evolving needs and challenges to ensure ongoing support and improvement will help creators to create a fairer environment for both genders. 
+
+
+```{r data fig9, echo=FALSE, warning=FALSE, message=FALSE, cache=TRUE, fig.align='center', fig.width=8, fig.height=3, fig.cap="Distribution of Leaving attendees based on their Genderm"}
+pastel_colors <- c("#FFB6C1", "#ADD8E6", "#B0E57C")
+leaving_with_gender_data <- subset(leaving_with_profile_data, gender != "NA")
+
+filtered_data_percent <- leaving_with_gender_data %>%
+  group_by(gender) %>%
+  summarise(percent = n() / nrow(leaving_with_gender_data) * 100) %>%
+  arrange(desc(gender))
+
+# Create a pie chart with percentages
+ggplot(filtered_data_percent, aes(x = "", y = percent, fill = gender)) +
+  geom_bar(stat = "identity", width = 1, color = "white") +
+  coord_polar(theta = "y") +
+  labs(title = "Distribution of Leaving attendees based on their Gender",
+       fill = "Gender") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 6), 
+    axis.text.y = element_text(size = 7),
+    axis.title = element_text(size = 10),
+    plot.title = element_text(size = 10, hjust = 0.5 , face = "bold"),
+    legend.title = element_text(size = 8),
+    legend.text = element_text(size = 8),
+    panel.border = element_blank()) +
+  
+  scale_fill_manual(values = pastel_colors) +
+  geom_text(aes(label = sprintf("%.1f%%", percent)), position = position_stack(vjust = 0.7))
+
+```
+
+
+## Distribution of Leaving attendees based on their Archetype
+
+The archetype of learners plays a key role in their interaction with the system. Studying their archetype and trying to manage them using specialized techniques based on their characteristics is like a brain hack that opens a window into the ways to keep the learners educated and entertained at the same time. Looking at Figure. 10, more than 41%% of the people who drop this course were vitalisers. These people love to learn for the sake of learning and there are ways to avoid their dropouts. It could be possible that by providing positive reinforcement for achievements and milestones and regularly acknowledging their progress, contributions, and successful completion of course modules, one is able to feed their voracious soul for learning. Another good strategy might be fostering a supportive online community where vitalisers can connect with like-minded individuals. Also, as these people often try to expand their learning, stressing the empowerment aspect of cybersecurity could also be an option to show them the fields of science that is available for them to explore as well. This way, demonstrating how knowledge gained in the course empowers Vitalisers to take control of their digital presence, enhancing their confidence and security could help.
+
+The second group with the most dropout rate are the so called fixers. These people probably took this course to manage a certain part of their personal life. So, a possible solution to upend their dropout trend is to integrate real-world case studies that mirror practical cybersecurity challenges. Engaging fixers by demonstrating how the course content directly applies to solving genuine cybersecurity issues could actually engage them in the process of learning as it is directly related to their primary intention of learning different things. Also, designing assessments that present fixers with realistic scenarios could also be an option. Evaluation of their problem-solving skills by assessing how well they can analyze and address cybersecurity issues in a simulated environment can be a compelling reason to stay engaged with the course. Providing constructive feedback on practical assignments is also essential in giving them a reason to stay. Acknowledging the practical application of cybersecurity skills and highlight areas where fixers excel in problem-solving and critical thinking can help.
+
+Hobbyist and advancers that ranked 3rd in the population. For hobbyist, gamification is a probable solution.  Incorporating gamification elements, such as badges, achievements, or levels, to make the learning experience more enjoyable and rewarding for hobbyists who approach cybersecurity as a hobby will be effective. Also, organizing community challenges or hackathons where Hobbyists can collaborate and showcase their skills might help. This fosters a sense of community and friendly competition.
+
+For advancers, designing advanced challenges and projects that cater to their intellectual curiosity is a good option. Offering opportunities for independent research or advanced-level coursework might trigger their character and hence avoid leaving early. Another option might be providing specialized modules or tracks for advancers to delve deeper into specific areas of cybersecurity. This allows them to focus on advanced topics aligned with their interests. Furthermore, offering a pathway toward recognized professional certifications will come handy. Advancers often seek certifications as a tangible measure of their expertise and commitment to the field with which they can be promoted in their professional career or they can simply add them to their CVs. Last but not least, ensuring advancers have access to cutting-edge resources, research papers, and industry publications as extra course material can make them entertained. This keeps them informed about the latest advancements and encourages continuous learning.
+
+
+
+```{r data fig10, echo=FALSE, warning=FALSE, message=FALSE, cache=TRUE, fig.align='center', fig.width=8, fig.height=3, fig.cap="Distribution of Leaving attendees based on their Archetype"}
+
+leaving_with_arcetype_data <- subset(leaving_with_profile_data, archetype != "NA")
+
+pastel_colors <- c("#FFB6C1", "#ADD8E6", "#98FB98", "#FFD700", "#FFA07A", "#87CEEB", "#C71585", "#FF6347")
+filtered_data_percent <- leaving_with_arcetype_data %>%
+  group_by(archetype) %>%
+  summarise(percent = n() / nrow(leaving_with_arcetype_data) * 100) %>%
+  arrange(desc(archetype))
+
+# Create a pie chart with percentages
+ggplot(filtered_data_percent, aes(x = "", y = percent, fill = archetype)) +
+  geom_bar(stat = "identity", width = 1, color = "white") +
+  coord_polar("y") +
+  labs(title = "Distribution of leveing leaners by their archetype",
+       fill = "Archetype")+
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 0), 
+    axis.text.y = element_text(size = 6),
+    axis.title = element_text(size = 10),
+    plot.title = element_text(size = 10, hjust = 0.5 , face = "bold"),
+    legend.title = element_text(size = 8),
+    legend.text = element_text(size = 8),
+    panel.border = element_blank()) +
+  scale_fill_manual(values = pastel_colors) +
+  geom_text(aes(label = sprintf("%.1f%%", percent)), position = position_stack(vjust = 0.7), size=2)
+
+
+```
+
+
+## Round 2: Evaluation
+
+The analysis of the 7 rounds of data gathered from an online course offered by Newcastle university has reached its conclusion with the completion of the second and final round of the CRISP-DM process. Valuable insights have been gained into the overall state of the distribution of learners based on their features, including their characteristics and the so-called archetype.
+
+The trend of leaving the course by learners have been identified and the distribution based on the results gained through cycle one has been obtained. Then, a comprehensive discussion on ways to address this issue was presented addressing the top three groups with the most dropout rate. 
+
+Following the structured checks and balances of the CRISP-DM model, the findings of this report offer insights that can be confidently used and shared by the intended audience. Graphical evidence supports the points made, presented in a simple and informative way. Considering all these aspects, this analysis is seen as successful, providing value to those interested in the information about the cyber-security course offered by Newcastle university. 
+
+
+## Final Phase: Deployment
+
+In the Deployment phase of the CRISP-DM process for the Newcastle University online course analysis, the focus is on translating the identified insights into concrete actions. Recommendations addressing the dropout trends, particularly for the top three groups with the highest dropout rates, are implemented. This involves structural changes to the course, enhancements in teaching methodologies, and the introduction of targeted support services. Clear communication channels are established to relay findings and changes to relevant stakeholders. Continuous monitoring and feedback mechanisms are put in place to assess the effectiveness of the implemented measures, and documentation of the entire process ensures a comprehensive understanding of the improvements made. The success of these interventions prompts considerations for potential scalability to other courses, emphasizing adaptability to evolving trends in online education and cybersecurity.
+
+## References
+
+Dataset: Newcastle University, "Cyber Security: Safety At Home, Online, and in Life," Massive Open Online Course (MOOC), FutureLearn.
+
+Methodology: Chapman, P., Clinton, J., Kerber, R., Khabaza, T., Reinartz, T., Shearer, C., Wirth, R.: CRISP-DM 1.0 Step-by-step data mining guide. SPSS Inc., (2000) 
+
